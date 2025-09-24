@@ -1,0 +1,187 @@
+---
+title: "desafio07"
+format: html
+editor: visual
+---
+
+```{r}
+# --- PÁGINA 2: Configuração Inicial ---
+# Carregando as bibliotecas
+library(RSQLite)
+library(tidyverse)
+
+# Copiando o banco de dados para uma versão de trabalho para não modificar o original
+# Usando "." para indicar o diretório de trabalho atual.
+if (!"discoCopy.db" %in% list.files(".")) {
+  file.copy("disco.db", "discoCopy.db")
+}
+
+# Conectando ao banco de dados copiado
+db <- dbConnect(SQLite(), "discoCopy.db")
+
+
+# --- PÁGINA 4: Inserindo uma Tabela ---
+# Listando as tabelas existentes para ver o estado inicial
+dbListTables(db)
+
+# Criando uma tabela vazia chamada 'instruments'
+dbExecute(db, "CREATE TABLE instruments
+           (AlbumId INTEGER,
+            TrackId INTEGER,
+            ElectricGuitar INTEGER,
+            Singer INTEGER,
+            Trumpet INTEGER)")
+
+
+# --- PÁGINA 5: Removendo uma Tabela ---
+# Listando os campos (colunas) da tabela que acabamos de criar
+dbListFields(db, 'instruments')
+
+# Removendo a tabela 'instruments'
+dbExecute(db, "DROP TABLE instruments")
+
+# Listando as tabelas novamente para confirmar que foi removida
+dbListTables(db)
+
+
+# --- PÁGINA 6 & 7: Boas Práticas (SQL Injection com Gilberto Gil) ---
+# O slide usa a tabela 'artists' e 'albums' que já existem em disco.db
+
+# Exemplo de consulta INSEGURA (como mostrado na aula)
+aname <- "Gilberto Gil"
+sql_inseguro_1 <- paste0("SELECT ArtistId FROM artists ",
+                         "WHERE Name = '", aname, "'")
+aId <- dbGetQuery(db, sql_inseguro_1)
+
+sql_inseguro_2 <- paste('SELECT Title FROM albums',
+                        'WHERE ArtistId = ', aId$ArtistId)
+dbGetQuery(db, sql_inseguro_2)
+
+# Exemplo de consulta SEGURA (a forma correta de fazer)
+sql_seguro_1 <- "SELECT ArtistId FROM artists WHERE Name = ?"
+query <- dbSendQuery(db, sql_seguro_1)
+dbBind(query, list("Gilberto Gil"))
+aId_seguro <- dbFetch(query)
+dbClearResult(query)
+
+sql_seguro_2 <- 'SELECT Title FROM albums WHERE ArtistId = ?'
+dbGetQuery(db, sql_seguro_2, params = list(aId_seguro$ArtistId))
+
+
+# --- PÁGINA 8 & 9: Incluindo Linhas Numa Tabela ---
+# Para este exemplo, precisamos criar a tabela 'instruments' novamente
+dbExecute(db, "CREATE TABLE instruments
+           (AlbumId INTEGER,
+            TrackId INTEGER,
+            ElectricGuitar INTEGER,
+            Singer INTEGER,
+            Trumpet INTEGER)")
+
+# Consultando faixas do álbum com AlbumId = 85 para saber o que inserir
+sql_faixas <- 'SELECT TrackId, Name FROM tracks WHERE AlbumId = 85'
+dbGetQuery(db, sql_faixas) %>% head()
+
+# Inserindo duas linhas na tabela 'instruments'
+dbExecute(db, "INSERT INTO instruments
+          VALUES
+          ('85', '1075', 0, 1, 0),
+          ('85', '1078', 0, 1, 0); ")
+
+# Verificando os dados que acabamos de inserir
+dbGetQuery(db, "SELECT * FROM instruments")
+
+
+# --- PÁGINA 10: Inserindo uma Tabela Diretamente (mtcars) ---
+# Inserindo o data frame 'mtcars' inteiro como uma nova tabela
+dbWriteTable(db, "mtcars", mtcars)
+dbListTables(db)
+
+# Consultando os primeiros registros da nova tabela 'mtcars'
+dbGetQuery(db, "SELECT * FROM mtcars") %>% head(3)
+
+
+# --- PÁGINA 11: Parâmetro 'append' ---
+# Criando um data frame com a média de cada coluna de 'mtcars'
+theAvgCar <- mtcars %>%
+  summarise_all(function(x) round(mean(x), 2))
+theAvgCar
+
+# Adicionando a linha com as médias ao FINAL da tabela 'mtcars' existente
+dbWriteTable(db, "mtcars", theAvgCar, append = TRUE)
+dbGetQuery(db, "SELECT * FROM mtcars") %>% tail(3)
+
+
+# --- PÁGINA 12: Parâmetro 'overwrite' ---
+# Sobrescrevendo a tabela 'mtcars', substituindo-a pela versão original
+dbWriteTable(db, "mtcars", mtcars, overwrite = TRUE)
+dbGetQuery(db, "SELECT * FROM mtcars") %>% tail(3)
+
+
+# --- PÁGINA 13: Lendo em Partes (Chunks) ---
+# Lendo os resultados de uma consulta em pedaços de 5 linhas
+res <- dbSendQuery(db, "SELECT * FROM mtcars WHERE cyl = 4")
+while (!dbHasCompleted(res)) {
+  chunk <- dbFetch(res, n = 5)
+  print(nrow(chunk))
+}
+dbClearResult(res)
+
+
+# --- PÁGINA 14: Fechando Conexões e Limpando ---
+# Desconectando do banco de dados e removendo a cópia
+dbDisconnect(db)
+if ("discoCopy.db" %in% list.files(".")) {
+  file.remove("discoCopy.db")
+}
+
+
+# --- PÁGINA 15 & 16: Criando um Banco de Dados do Zero ---
+# Lendo arquivos CSV (devem estar na mesma pasta do script)
+airports <- read_csv("airports.csv", col_types = "cccccdd")
+airlines <- read_csv("airlines.csv", col_types = "cc")
+
+# Criando e conectando a um novo arquivo de banco de dados
+air <- dbConnect(SQLite(), dbname = "air.db")
+
+# Escrevendo os data frames no novo banco
+dbWriteTable(air, name = "airports", airports)
+dbWriteTable(air, name = "airlines", airlines)
+dbListTables(air)
+
+# Desconectando e removendo o arquivo .db que acabamos de criar
+dbDisconnect(air)
+if ("air.db" %in% list.files(".")) {
+  file.remove("air.db")
+}
+
+
+# --- PÁGINA 17 a 20: Introdução ao dbplyr ---
+# Carregando a biblioteca dbplyr
+library(dbplyr)
+
+# Conectando ao banco de dados original (não a cópia)
+db <- dbConnect(SQLite(), "disco.db")
+
+# Criando uma referência (lazy query) à tabela 'tracks'
+tracks <- tbl(db, "tracks")
+tracks %>% head(3)
+
+# Usando verbos do dplyr diretamente no banco de dados
+meanTracks <- tracks %>%
+  group_by(AlbumId) %>%
+  summarise(AvLen = mean(Milliseconds, na.rm = TRUE),
+            AvCost = mean(UnitPrice, na.rm = TRUE))
+meanTracks
+
+# Vendo a consulta SQL que o dbplyr gerou por baixo dos panos
+meanTracks %>% show_query()
+
+# Trazendo os resultados da consulta para a memória do R
+mT <- meanTracks %>% collect()
+mT
+
+# Fechando a conexão final
+dbDisconnect(db)
+
+# --- FIM DE TODO O CÓDIGO DA AULA ---
+```

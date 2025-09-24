@@ -1,0 +1,67 @@
+---
+title: "desafio03"
+format: pdf
+editor: visual
+---
+
+PACOTES NECESSÁRIOS:
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages("arrow")
+install.packages("jsonlite")
+install.packages("tsibble")
+install.packages("dplyr")
+
+library(arrow)
+library(jsonlite)
+library(tsibble)
+library(dplyr)
+```
+
+ARQUIVO PARQUET:
+
+```{r}
+# Baixando o arquivo parquet (só precisa rodar uma vez)
+download.file(
+  "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2023-01.parquet",
+  destfile = "yellow_tripdata_2023-01.parquet",
+  mode = "wb"
+)
+
+# Lendo o parquet e convertendo em data frame
+df_taxi_raw <- read_parquet("yellow_tripdata_2023-01.parquet")
+df_taxi <- as.data.frame(df_taxi_raw)
+
+head(df_taxi)
+class(df_taxi) #conferindo se é data frame
+```
+
+ARQUIVO JSON:
+
+```{r}
+# Baixando o JSON (só precisa rodar uma vez)
+download.file(
+  "https://jsonplaceholder.typicode.com/users",
+  destfile = "usuarios.json"
+)
+
+# Lendo o JSON salvo localmente e convertendo em data frame
+df_users_raw <- fromJSON("usuarios.json")
+df_users <- as.data.frame(df_users_raw)
+
+head(df_users)
+class(df_users) #conferindo se é data frame
+```
+
+EXPLICAÇÃO:
+
+O Parquet é um formato de arquivo em colunas, eficiente para armazenar e processar grandes volumes de dados, enquanto o JSON (JavaScript Object Notation) é um formato de texto leve, muito usado para troca de informações em sistemas e APIs. Para trabalhar com esses arquivos no R, o processo é simples:
+
+1\) primeiro é preciso baixar o arquivo, e para isso usamos a função download.file, que permite salvar localmente tanto um Parquet quanto um JSON a partir de um link.
+
+2\) no caso do Parquet, após baixado, abrimos o arquivo com a função read_parquet, que lê os dados e os organiza em formato de tabela.
+
+3\) no caso do JSON, depois de baixado, utilizamos a função fromJSON, que interpreta o conteúdo em formato de chave-valor e converte em uma estrutura tabular dentro do R.
+
+Assim, com esses três passos básicos — baixar com download.file, ler com read_parquet (para Parquet) e com fromJSON (para JSON) — conseguimos carregar os dois tipos de arquivos no R como data frames e usá-los normalmente nas análises.

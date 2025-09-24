@@ -1,0 +1,37 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(RSQLite)
+
+# Conecta ao banco de dados "disco.db" que está na pasta Downloads
+db <- dbConnect(SQLite(), "C:/Users/55119/Downloads/disco.db")
+
+# Lista todas as tabelas disponíveis dentro do banco
+dbListTables(db)
+
+# Lista os campos (colunas) da tabela "albums"
+dbListFields(db, 'albums')
+
+# Consulta todos os dados da tabela "albums"
+album_db <- dbGetQuery(db, 'SELECT * FROM albums')
+head(album_db)   # primeiras linhas
+dim(album_db)    # dimensões (linhas x colunas)
+
+# Consulta colunas específicas da tabela "tracks", ordenando pelo preço
+sql <- 'SELECT trackid, name, composer, unitprice 
+        FROM tracks 
+        ORDER BY unitprice'
+res <- dbGetQuery(db, sql)
+head(res)
+
+# Consulta as cidades dos clientes, em ordem alfabética
+sql <- 'SELECT city FROM customers ORDER BY city'
+res_cidades <- dbGetQuery(db, sql)
+head(res_cidades)
+dim(res_cidades)
+
+```
