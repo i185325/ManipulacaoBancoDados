@@ -1,0 +1,142 @@
+---
+title: "desafio08"
+format: html
+editor: visual
+---
+
+```{r}
+
+# Pacote necessário
+library(RSQLite)
+
+# Caminho do arquivo SQLite
+arquivo <- "C:\\Users\\BELA\\Downloads\\database.sqlite3"
+
+# Conectando ao banco
+conn <- dbConnect(SQLite(), arquivo)
+cat("Conexão bem-sucedida!\n\n")
+
+# ==============================================
+# 1. Professores que lecionaram disciplinas de estatística
+# ==============================================
+
+stat_instructors_query <- paste(
+  'SELECT instructors.name, abbreviation FROM subjects',
+  'JOIN subject_memberships ON subjects.code = subject_memberships.subject_code',
+  'JOIN sections ON subject_memberships.course_offering_uuid = sections.course_offering_uuid',
+  'JOIN teachings ON sections.uuid = teachings.section_uuid',
+  'JOIN instructors ON teachings.instructor_id = instructors.id',
+  "WHERE abbreviation = 'STAT'",
+  sep = " "
+)
+
+stat_instructors <- dbGetQuery(conn, stat_instructors_query)
+
+cat(sprintf("Lecionaram %d professores de estatística.\n",
+            length(unique(stat_instructors$name))))
+cat("Os professores são:\n")
+print(unique(stat_instructors$name))
+
+# ==============================================
+# 2. Professor mais difícil e mais fácil (pelo GPA médio)
+# ==============================================
+
+sql_prof <- paste(
+  'SELECT instructors.name, subjects.abbreviation,',
+  'AVG(
+     (4.0 * gd.a_count +
+      3.5 * gd.ab_count +
+      3.0 * gd.b_count +
+      2.5 * gd.bc_count +
+      2.0 * gd.c_count +
+      1.0 * gd.d_count +
+      0.0 * gd.f_count)
+      / NULLIF((gd.a_count + gd.ab_count + gd.b_count +
+                gd.bc_count + gd.c_count + gd.d_count +
+                gd.f_count), 0)
+   ) AS gpa_avg',
+  'FROM subjects',
+  'JOIN subject_memberships sm ON subjects.code = sm.subject_code',
+  'JOIN course_offerings co ON sm.course_offering_uuid = co.uuid',
+  'JOIN grade_distributions gd ON co.uuid = gd.course_offering_uuid',
+  'JOIN sections s ON co.uuid = s.course_offering_uuid',
+  'JOIN teachings t ON s.uuid = t.section_uuid',
+  'JOIN instructors ON t.instructor_id = instructors.id',
+  'WHERE subjects.abbreviation = "STAT"',
+  'GROUP BY instructors.name',
+  sep = " "
+)
+
+ProfessorMaisDificil <- dbGetQuery(
+  conn,
+  paste('SELECT * FROM (', sql_prof, ') sub',
+        'WHERE gpa_avg IS NOT NULL',
+        'ORDER BY gpa_avg ASC LIMIT 1')
+)
+
+ProfessorMaisFacil <- dbGetQuery(
+  conn,
+  paste('SELECT * FROM (', sql_prof, ') sub',
+        'ORDER BY gpa_avg DESC LIMIT 1')
+)
+
+cat("\n==============================================\n")
+cat(sprintf("Professor mais difícil: %s (GPA médio = %.2f)\n",
+            ProfessorMaisDificil$name, ProfessorMaisDificil$gpa_avg))
+cat(sprintf("Professor mais fácil:   %s (GPA médio = %.2f)\n",
+            ProfessorMaisFacil$name, ProfessorMaisFacil$gpa_avg))
+
+# ==============================================
+# 3. Disciplina mais difícil e mais fácil (pelo GPA médio)
+# ==============================================
+
+sql_disc <- paste(
+  'SELECT courses.name AS course_name, subjects.abbreviation,',
+  'AVG(
+     (4.0 * gd.a_count +
+      3.5 * gd.ab_count +
+      3.0 * gd.b_count +
+      2.5 * gd.bc_count +
+      2.0 * gd.c_count +
+      1.0 * gd.d_count +
+      0.0 * gd.f_count)
+      / NULLIF((gd.a_count + gd.ab_count + gd.b_count +
+                gd.bc_count + gd.c_count + gd.d_count +
+                gd.f_count), 0)
+   ) AS gpa_avg',
+  'FROM subjects',
+  'JOIN subject_memberships sm ON subjects.code = sm.subject_code',
+  'JOIN course_offerings co ON sm.course_offering_uuid = co.uuid',
+  'JOIN courses ON co.course_uuid = courses.uuid',
+  'JOIN grade_distributions gd ON co.uuid = gd.course_offering_uuid',
+  'WHERE subjects.abbreviation = "STAT"',
+  'GROUP BY courses.name, subjects.abbreviation',
+  sep = " "
+)
+
+DisciplinaMaisDificil <- dbGetQuery(
+  conn,
+  paste('SELECT * FROM (', sql_disc, ') sub',
+        'WHERE gpa_avg IS NOT NULL',
+        'ORDER BY gpa_avg ASC LIMIT 1')
+)
+
+DisciplinaMaisFacil <- dbGetQuery(
+  conn,
+  paste('SELECT * FROM (', sql_disc, ') sub',
+        'ORDER BY gpa_avg DESC LIMIT 1')
+)
+
+cat("\n==============================================\n")
+cat(sprintf("Disciplina mais difícil: %s (GPA médio = %.2f)\n",
+            DisciplinaMaisDificil$course_name, DisciplinaMaisDificil$gpa_avg))
+cat(sprintf("Disciplina mais fácil:   %s (GPA médio = %.2f)\n",
+            DisciplinaMaisFacil$course_name, DisciplinaMaisFacil$gpa_avg))
+
+# ==============================================
+# 4. Encerrar a conexão
+# ==============================================
+dbDisconnect(conn)
+cat("\nConexão encerrada com sucesso!\n")
+
+```
