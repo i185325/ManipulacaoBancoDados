@@ -65,3 +65,4 @@ O Parquet é um formato de arquivo em colunas, eficiente para armazenar e proces
 3\) no caso do JSON, depois de baixado, utilizamos a função fromJSON, que interpreta o conteúdo em formato de chave-valor e converte em uma estrutura tabular dentro do R.
 
 Assim, com esses três passos básicos — baixar com download.file, ler com read_parquet (para Parquet) e com fromJSON (para JSON) — conseguimos carregar os dois tipos de arquivos no R como data frames e usá-los normalmente nas análises.
+
